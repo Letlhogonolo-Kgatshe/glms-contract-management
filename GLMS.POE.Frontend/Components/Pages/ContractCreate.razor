@@ -1,0 +1,223 @@
+@page "/contracts/create"
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@inject ContractApiService ContractApi
+@inject ClientApiService ClientApi      
+@inject FileApiService FileApi             
+@inject NavigationManager Nav
+
+@using GLMS.POE.Shared.Models
+@using GLMS.POE.Shared.Models.Enums
+@using GLMS.POE.Frontend.Services.Api
+@using GLMS.Services.Helpers
+
+<PageTitle>New Contract — GLMS</PageTitle>
+
+<div class="breadcrumb">
+    <a href="/contracts"><i class="fa-solid fa-file-contract"></i> Contracts</a>
+    <span class="sep">›</span>
+    <span class="current">New Contract</span>
+</div>
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title">New Contract</h1>
+        <p class="page-subtitle">Factory Pattern logic moved to Backend</p>
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(_errorMsg))
+{
+    <div class="alert alert-danger"><i class="fa-solid fa-triangle-exclamation"></i> @_errorMsg</div>
+}
+
+<div class="card">
+    <div class="card-header"><span class="card-title">Contract Details</span></div>
+    <div class="card-body">
+        <EditForm Model="_model" OnValidSubmit="SubmitAsync">
+            <DataAnnotationsValidator />
+
+            <div class="form-grid">
+
+                <div class="form-group">
+                    <label>Client *</label>
+                    <InputSelect class="form-control" @bind-Value="_model.ClientId">
+                        <option value="0">— Select Client —</option>
+                        @foreach (var c in _clients)
+                        {
+                            <option value="@c.Id">@c.Name (@c.Region)</option>
+                        }
+                    </InputSelect>
+                </div>
+
+                <div class="form-group">
+                    <label>Service Level *</label>
+                    <InputSelect class="form-control" @bind-Value="_model.ServiceLevel">
+                        <option value="">— Select Level —</option>
+                        <option>Basic</option>
+                        <option>Standard</option>
+                        <option>Premium</option>
+                        <option>Enterprise</option>
+                    </InputSelect>
+                    <ValidationMessage For="() => _model.ServiceLevel" class="form-error" />
+                </div>
+
+                <div class="form-group">
+                    <label>Start Date *</label>
+                    <InputDate class="form-control" @bind-Value="_model.StartDate" />
+                    <ValidationMessage For="() => _model.StartDate" class="form-error" />
+                </div>
+
+                <div class="form-group">
+                    <label>End Date *</label>
+                    <InputDate class="form-control" @bind-Value="_model.EndDate" />
+                    <ValidationMessage For="() => _model.EndDate" class="form-error" />
+                </div>
+
+                <div class="form-group">
+                    <label>Initial Status</label>
+                    <select class="form-control" @bind="_createAsActive">
+                        <option value="false">Draft (standard flow)</option>
+                        <option value="true">Active (pre-approved)</option>
+                    </select>
+                    <span class="form-hint">Factory pattern is now handled in Backend Service.</span>
+                </div>
+
+            </div>
+
+            <div style="margin-top:24px;">
+                <label style="display:block;margin-bottom:8px;font-size:13px;font-weight:600;color:var(--text-muted);letter-spacing:0.03em;">
+                    Signed Agreement (PDF only)
+                </label>
+
+                @if (_uploadedFileName != null)
+                {
+                    <div style="display:flex;align-items:center;gap:12px;padding:14px 16px;background:var(--green-dim);border:1px solid rgba(34,197,94,0.3);border-radius:var(--radius-sm);">
+                        <i class="fa-solid fa-file-pdf" style="color:var(--green);font-size:22px;flex-shrink:0;"></i>
+                        <div style="flex:1;min-width:0;">
+                            <div style="font-weight:600;color:var(--green);font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">@_uploadedFileName</div>
+                            <div style="font-size:12px;color:var(--text-muted);">Ready to upload</div>
+                        </div>
+                        <button type="button" class="btn btn-danger btn-sm" @onclick="ClearFile">
+                            <i class="fa-solid fa-xmark"></i> Remove
+                        </button>
+                    </div>
+                }
+                else
+                {
+                    <div style="border:2px dashed var(--border);border-radius:var(--radius);padding:28px 24px;background:var(--bg-input);text-align:center;">
+                        <i class="fa-solid fa-cloud-arrow-up" style="font-size:28px;color:var(--text-faint);display:block;margin-bottom:10px;"></i>
+                        <p style="font-size:14px;color:var(--text-muted);margin-bottom:14px;">PDF files only · Max 10 MB</p>
+                        <label style="display:inline-flex;align-items:center;gap:8px;padding:8px 18px;background:var(--bg-surface);border:1px solid var(--border-light);border-radius:var(--radius-sm);cursor:pointer;font-size:14px;font-weight:600;color:var(--text-primary);">
+                            <i class="fa-solid fa-folder-open"></i> Choose PDF
+                            <InputFile OnChange="OnFileSelected" accept=".pdf" style="display:none;" />
+                        </label>
+                    </div>
+                }
+
+                @if (!string.IsNullOrEmpty(_fileError))
+                {
+                    <span class="form-error" style="margin-top:6px;display:block;">@_fileError</span>
+                }
+            </div>
+
+            <div style="margin-top:28px;display:flex;gap:12px;align-items:center;">
+                <button type="submit" class="btn btn-primary" disabled="@_saving">
+                    @if (_saving)
+                    {
+                        <span><i class="fa-solid fa-spinner fa-spin"></i> Saving...</span>
+                    }
+                    else
+                    {
+                        <span><i class="fa-solid fa-floppy-disk"></i> Create Contract</span>
+                    }
+                </button>
+                <a href="/contracts" class="btn btn-secondary">Cancel</a>
+            </div>
+
+        </EditForm>
+    </div>
+</div>
+
+@code {
+    private Contract _model = new() { StartDate = DateTime.Today, EndDate = DateTime.Today.AddYears(1) };
+    private List<Client> _clients = new();
+    private bool _saving;
+    private string _errorMsg = "", _fileError = "";
+    private string? _uploadedFileName;
+    private MemoryStream? _selectedFileStream;
+    private string? _selectedFileName;
+    private bool _createAsActive;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _clients = await ClientApi.GetAllClientsAsync();
+    }
+
+    private async Task OnFileSelected(InputFileChangeEventArgs e)
+    {
+        _fileError = "";
+        var file = e.File;
+
+        try
+        {
+            var memoryStream = new MemoryStream();
+            using (var fileStream = file.OpenReadStream(10 * 1024 * 1024))
+            {
+                await fileStream.CopyToAsync(memoryStream);
+            }
+            memoryStream.Position = 0;
+
+            _selectedFileStream?.Dispose();
+            _selectedFileStream = memoryStream;
+            _selectedFileName = file.Name;
+            _uploadedFileName = file.Name;
+        }
+        catch (Exception ex)
+        {
+            _fileError = $"Error reading file: {ex.Message}";
+            ClearFile();
+        }
+    }
+
+    private void ClearFile()
+    {
+        _selectedFileStream?.Dispose();
+        _selectedFileStream = null;
+        _uploadedFileName = null;
+        _selectedFileName = null;
+        _fileError = "";
+    }
+
+    private async Task SubmitAsync()
+    {
+        if (_model.ClientId == 0) { _errorMsg = "Please select a client."; return; }
+        if (string.IsNullOrWhiteSpace(_model.ServiceLevel)) { _errorMsg = "Please select a service level."; return; }
+        if (_model.EndDate <= _model.StartDate) { _errorMsg = "End date must be after start date."; return; }
+
+        _saving = true;
+        _errorMsg = "";
+
+        try
+        {
+            // Send create request with flag for active/draft
+            var createdContract = await ContractApi.CreateContractAsync(_model, _createAsActive);
+
+            if (_selectedFileStream != null && createdContract != null)
+            {
+                _selectedFileStream.Position = 0;
+                var wrappedFile = new StreamBrowserFile(_selectedFileStream, _selectedFileName!);
+                await FileApi.UploadContractFileAsync(createdContract.Id, wrappedFile);
+            }
+
+            Nav.NavigateTo("/contracts?success=created");
+        }
+        catch (Exception ex)
+        {
+            _errorMsg = ex.Message;
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+}}

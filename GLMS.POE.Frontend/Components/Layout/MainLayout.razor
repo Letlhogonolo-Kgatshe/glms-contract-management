@@ -1,0 +1,64 @@
+@inherits LayoutComponentBase
+
+<div class="shell">
+    <nav class="sidebar">
+        <div class="sidebar-brand">
+            <div class="brand-icon">
+                <i class="fa-solid fa-globe"></i>
+            </div>
+            <div class="brand-text">
+                <span class="brand-name">GLMS</span>
+                <span class="brand-sub">TechMove Logistics</span>
+            </div>
+        </div>
+
+        <ul class="nav-links">
+            <li>
+                <NavLink href="/" Match="NavLinkMatch.All">
+                    <i class="fa-solid fa-gauge-high"></i>
+                    <span>Dashboard</span>
+                </NavLink>
+            </li>
+            <li>
+                <NavLink href="/clients">
+                    <i class="fa-solid fa-building-user"></i>
+                    <span>Clients</span>
+                </NavLink>
+            </li>
+            <li>
+                <NavLink href="/contracts">
+                    <i class="fa-solid fa-file-contract"></i>
+                    <span>Contracts</span>
+                </NavLink>
+            </li>
+            <li>
+                <NavLink href="/service-requests">
+                    <i class="fa-solid fa-truck-fast"></i>
+                    <span>Service Requests</span>
+                </NavLink>
+            </li>
+            <li>
+                <NavLink href="/audit-log">
+                    <i class="fa-solid fa-clock-rotate-left"></i>
+                    <span>Audit Log</span>
+                </NavLink>
+            </li>
+        </ul>
+
+        <div class="sidebar-footer">
+            <div class="user-badge">
+                <div class="user-avatar">LA</div>
+                <div class="user-info">
+                    <span class="user-name">Logistics Admin</span>
+                    <span class="user-role">System Administrator</span>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <div class="content-wrapper">
+            @Body
+        </div>
+    </main>
+</div>

@@ -1,0 +1,125 @@
+@page "/"
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@using Microsoft.AspNetCore.Components.Web
+@inject ContractApiService ContractSvc
+@inject ServiceRequestApiService SrSvc
+
+<PageTitle>Dashboard — GLMS</PageTitle>
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Dashboard</h1>
+        <p class="page-subtitle">Global Logistics Management System — TechMove Logistics</p>
+    </div>
+</div>
+
+@if (_loading)
+{
+    <div class="spinner"></div>
+    <p class="loading-text">Loading dashboard data…</p>
+}
+else
+{
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon blue"><i class="fa-solid fa-file-contract"></i></div>
+            <div>
+                <div class="stat-value">@_totalContracts</div>
+                <div class="stat-label">Total Contracts</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon green"><i class="fa-solid fa-circle-check"></i></div>
+            <div>
+                <div class="stat-value">@_activeContracts</div>
+                <div class="stat-label">Active Contracts</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon red"><i class="fa-solid fa-triangle-exclamation"></i></div>
+            <div>
+                <div class="stat-value">@_expiredContracts</div>
+                <div class="stat-label">Expired Contracts</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon amber"><i class="fa-solid fa-hourglass-half"></i></div>
+            <div>
+                <div class="stat-value">@_draftContracts</div>
+                <div class="stat-label">Draft Contracts</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon teal"><i class="fa-solid fa-truck-fast"></i></div>
+            <div>
+                <div class="stat-value">@_totalRequests</div>
+                <div class="stat-label">Service Requests</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <span class="card-title">Recent Contracts</span>
+            <a href="/contracts" class="btn btn-secondary btn-sm">View All</a>
+        </div>
+        @if (_recentContracts.Any())
+        {
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Client</th>
+                        <th>Service Level</th>
+                        <th>Status</th>
+                        <th>End Date</th>
+                        <th>Requests</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var c in _recentContracts)
+                    {
+                        <tr>
+                            <td><span style="color:var(--text-muted)">#@c.Id</span></td>
+                            <td><strong>@c.Client?.Name</strong></td>
+                            <td>@c.ServiceLevel</td>
+                            <td><StatusBadge Status="@c.Status" /></td>
+                            <td style="color: @(c.EndDate < DateTime.UtcNow ? "var(--red)" : "inherit")">
+                                @c.EndDate.ToString("dd MMM yyyy")
+                            </td>
+                            <td>@c.ServiceRequests.Count</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+        else
+        {
+            <div class="empty-state">
+                <i class="fa-solid fa-file-circle-xmark"></i>
+                <h3>No Contracts Yet</h3>
+                <p>Create your first contract to get started.</p>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private bool _loading = true;
+    private int _totalContracts, _activeContracts, _expiredContracts, _draftContracts, _totalRequests;
+    private List<Contract> _recentContracts = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var contracts = await ContractSvc.GetAllContractsAsync();
+        var requests  = await SrSvc.GetAllServiceRequestsAsync();
+
+        _totalContracts   = contracts.Count;
+        _activeContracts  = contracts.Count(c => c.Status == ContractStatus.Active);
+        _expiredContracts = contracts.Count(c => c.Status == ContractStatus.Expired);
+        _draftContracts   = contracts.Count(c => c.Status == ContractStatus.Draft);
+        _totalRequests    = requests.Count;
+        _recentContracts  = contracts.Take(5).ToList();
+        _loading = false;
+    }
+}

@@ -1,0 +1,331 @@
+@page "/contracts"
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@inject ContractApiService ContractSvc
+@inject NavigationManager Nav
+
+<PageTitle>Contracts — GLMS</PageTitle>
+
+@code {
+    private List<Contract> _contracts = new();
+    private bool _loading = true;
+    private string _successMsg = "", _errorMsg = "";
+
+    // Filters
+    private DateTime? _filterFrom;
+    private DateTime? _filterTo;
+    private string _filterStatus = "";
+
+    private Contract? _editingContract;
+    private Contract? _deleteContract;
+    private bool _saving = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var uri = Nav.ToAbsoluteUri(Nav.Uri);
+        if (Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Query).TryGetValue("success", out var successVal))
+        {
+            if (successVal == "created")
+                _successMsg = "Contract created successfully.";
+        }
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _contracts = await ContractSvc.GetAllContractsAsync();
+        _loading = false;
+    }
+
+    private async Task SearchAsync()
+    {
+        _loading = true;
+        ContractStatus? status = string.IsNullOrEmpty(_filterStatus)
+            ? null
+            : Enum.Parse<ContractStatus>(_filterStatus);
+
+        // Note: ContractApiService doesn't have SearchAsync, using GetAllAsync as fallback
+        _contracts = await ContractSvc.GetAllContractsAsync();
+        
+        // Apply client-side filtering if needed
+        if (_filterFrom.HasValue || _filterTo.HasValue || status.HasValue)
+        {
+            _contracts = _contracts.Where(c =>
+                (!_filterFrom.HasValue || c.StartDate >= _filterFrom.Value) &&
+                (!_filterTo.HasValue || c.StartDate <= _filterTo.Value) &&
+                (!status.HasValue || c.Status == status.Value)
+            ).ToList();
+        }
+        
+        _loading = false;
+    }
+
+    private async Task ClearFilters()
+    {
+        _filterFrom = null;
+        _filterTo = null;
+        _filterStatus = "";
+        await LoadAsync();
+    }
+
+    private async Task ChangeStatus(int id, string? statusStr)
+    {
+        if (string.IsNullOrEmpty(statusStr)) return;
+        try
+        {
+            var status = Enum.Parse<ContractStatus>(statusStr);
+            var contract = await ContractSvc.GetContractByIdAsync(id);
+            if (contract != null)
+            {
+                contract.Status = status;
+                await ContractSvc.UpdateContractAsync(contract);
+            }
+            _successMsg = $"Contract #{id} status updated to {status}.";
+            _errorMsg = "";
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _errorMsg = ex.Message;
+        }
+    }
+
+    private void EditContract(Contract contract)
+    {
+        _editingContract = new Contract
+        {
+            Id = contract.Id,
+            ClientId = contract.ClientId,
+            ServiceLevel = contract.ServiceLevel,
+            StartDate = contract.StartDate,
+            EndDate = contract.EndDate,
+            Status = contract.Status,
+            SignedAgreementPath = contract.SignedAgreementPath,
+            SignedAgreementFileName = contract.SignedAgreementFileName,
+            CreatedAt = contract.CreatedAt
+        };
+    }
+    private void CancelEditContract() => _editingContract = null;
+    private async Task UpdateContractAsync()
+    {
+        if (_editingContract == null) return;
+        _saving = true;
+        var contract = await ContractSvc.GetContractByIdAsync(_editingContract.Id);
+        if (contract != null)
+        {
+            contract.ServiceLevel = _editingContract.ServiceLevel;
+            contract.StartDate = _editingContract.StartDate;
+            contract.EndDate = _editingContract.EndDate;
+            await ContractSvc.UpdateContractAsync(contract);
+            _successMsg = $"Contract #{contract.Id} updated successfully.";
+        }
+        _editingContract = null;
+        _saving = false;
+        await LoadAsync();
+    }
+    private void ConfirmDeleteContract(Contract contract) => _deleteContract = contract;
+    private void CancelDeleteContract() => _deleteContract = null;
+    private async Task DeleteContractAsync()
+    {
+        if (_deleteContract == null) return;
+        await ContractSvc.DeleteContractAsync(_deleteContract.Id);
+        _successMsg = $"Contract #{_deleteContract.Id} deleted.";
+        _deleteContract = null;
+        await LoadAsync();
+    }
+}
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Contracts</h1>
+        <p class="page-subtitle">Contract Management Hub — centralised legal agreements &amp; SLAs</p>
+    </div>
+    <a href="/contracts/create" class="btn btn-primary">
+        <i class="fa-solid fa-plus"></i> New Contract
+    </a>
+</div>
+
+@if (!string.IsNullOrEmpty(_successMsg))
+{
+    <div class="alert alert-success"><i class="fa-solid fa-check-circle"></i> @_successMsg</div>
+}
+@if (!string.IsNullOrEmpty(_errorMsg))
+{
+    <div class="alert alert-danger"><i class="fa-solid fa-triangle-exclamation"></i> @_errorMsg</div>
+}
+
+<!-- ── Filter Bar ──────────────────────────────────────────── -->
+<div class="card" style="margin-bottom:20px">
+    <div class="filter-bar">
+        <div class="form-group">
+            <label>Start Date From</label>
+            <input type="date" class="form-control" @bind="_filterFrom" @bind:format="yyyy-MM-dd" />
+        </div>
+        <div class="form-group">
+            <label>Start Date To</label>
+            <input type="date" class="form-control" @bind="_filterTo" @bind:format="yyyy-MM-dd" />
+        </div>
+        <div class="form-group">
+            <label>Status</label>
+            <select class="form-control" @bind="_filterStatus">
+                <option value="">All Statuses</option>
+                @foreach (var s in Enum.GetValues<ContractStatus>())
+                {
+                    <option value="@s">@s</option>
+                }
+            </select>
+        </div>
+        <button class="btn btn-primary" @onclick="SearchAsync">
+            <i class="fa-solid fa-magnifying-glass"></i> Search
+        </button>
+        <button class="btn btn-secondary" @onclick="ClearFilters">
+            <i class="fa-solid fa-xmark"></i> Clear
+        </button>
+    </div>
+</div>
+
+<!-- ── Results Table ──────────────────────────────────────── -->
+<div class="card">
+    <div class="card-header">
+        <span class="card-title">Contracts (@_contracts.Count)</span>
+    </div>
+
+    @if (_loading)
+    {
+        <div class="spinner"></div>
+        <p class="loading-text">Loading…</p>
+    }
+    else if (_contracts.Any())
+    {
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Client</th>
+                    <th>Service Level</th>
+                    <th>Status</th>
+                    <th>Start</th>
+                    <th>End</th>
+                    <th>Agreement</th>
+                    <th>Requests</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var c in _contracts)
+                {
+                    <tr>
+                        <td><span style="color:var(--text-muted)">#@c.Id</span></td>
+                        <td><strong>@c.Client?.Name</strong><br /><span style="font-size:12px;color:var(--text-muted)">@c.Client?.Region</span></td>
+                        <td>@c.ServiceLevel</td>
+                        <td><StatusBadge Status="@c.Status" /></td>
+                        <td>@c.StartDate.ToString("dd MMM yyyy")</td>
+                        <td style="color: @(c.EndDate < DateTime.UtcNow ? "var(--red)" : "inherit")">
+                            @c.EndDate.ToString("dd MMM yyyy")
+                        </td>
+                        <td>
+                            @if (!string.IsNullOrEmpty(c.SignedAgreementPath))
+                            {
+                                <a href="/@c.SignedAgreementPath" target="_blank" class="btn btn-ghost btn-sm" title="Download PDF">
+                                    <i class="fa-solid fa-file-pdf" style="color:var(--red)"></i> Download
+                                </a>
+                            }
+                            else
+                            {
+                                <span style="color:var(--text-faint);font-size:13px">None</span>
+                            }
+                        </td>
+                        <td>@c.ServiceRequests.Count</td>
+                        <td>
+                            <div class="action-group">
+                                <a href="/contracts/@c.Id" class="btn btn-ghost btn-sm" title="View">
+                                    <i class="fa-solid fa-eye"></i>
+                                </a>
+                                <button class="btn btn-ghost btn-sm" @onclick="() => EditContract(c)" title="Edit"><i class="fa-solid fa-pen"></i></button>
+                                <button class="btn btn-danger btn-sm" @onclick="() => ConfirmDeleteContract(c)" title="Delete"><i class="fa-solid fa-trash"></i></button>
+                                <select class="form-control" style="width:130px;padding:5px 8px;font-size:12px"
+                                        @onchange="async e => await ChangeStatus(c.Id, e.Value?.ToString())">
+                                    @foreach (var s in Enum.GetValues<ContractStatus>())
+                                    {
+                                        <option value="@s" selected="@(c.Status == s)">@s</option>
+                                    }
+                                </select>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+    else
+    {
+        <div class="empty-state">
+            <i class="fa-solid fa-file-circle-xmark"></i>
+            <h3>No Contracts Found</h3>
+            <p>Try adjusting your filters or create a new contract.</p>
+        </div>
+    }
+</div>
+
+@if (_editingContract != null)
+{
+    <div class="modal show" style="display:block;">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Contract</h5>
+                    <button type="button" class="btn-close" @onclick="CancelEditContract"></button>
+                </div>
+                <div class="modal-body">
+                    <EditForm Model="_editingContract" OnValidSubmit="UpdateContractAsync">
+                        <DataAnnotationsValidator />
+                        <div class="form-group">
+                            <label>Service Level *</label>
+                            <InputSelect class="form-control" @bind-Value="_editingContract.ServiceLevel">
+                                <option value="">— Select Level —</option>
+                                <option>Basic</option>
+                                <option>Standard</option>
+                                <option>Premium</option>
+                                <option>Enterprise</option>
+                            </InputSelect>
+                            <ValidationMessage For="() => _editingContract.ServiceLevel" class="form-error" />
+                        </div>
+                        <div class="form-group">
+                            <label>Start Date *</label>
+                            <InputDate class="form-control" @bind-Value="_editingContract.StartDate" />
+                            <ValidationMessage For="() => _editingContract.StartDate" class="form-error" />
+                        </div>
+                        <div class="form-group">
+                            <label>End Date *</label>
+                            <InputDate class="form-control" @bind-Value="_editingContract.EndDate" />
+                            <ValidationMessage For="() => _editingContract.EndDate" class="form-error" />
+                        </div>
+                        <div style="margin-top:20px; display:flex; gap:10px">
+                            <button type="submit" class="btn btn-primary" disabled="@_saving">Save Changes</button>
+                            <button type="button" class="btn btn-secondary" @onclick="CancelEditContract">Cancel</button>
+                        </div>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+@if (_deleteContract != null)
+{
+    <div class="modal show" style="display:block;">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Delete Contract</h5>
+                </div>
+                <div class="modal-body">
+                    <p>Are you sure you want to delete contract <strong>#@_deleteContract.Id</strong>?</p>
+                    <div style="margin-top:20px; display:flex; gap:10px">
+                        <button class="btn btn-danger" @onclick="DeleteContractAsync">Delete</button>
+                        <button class="btn btn-secondary" @onclick="CancelDeleteContract">Cancel</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}

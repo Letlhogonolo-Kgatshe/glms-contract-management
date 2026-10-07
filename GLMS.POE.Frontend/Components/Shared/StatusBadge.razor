@@ -1,0 +1,28 @@
+@using GLMS.POE.Shared.Models.Enums
+
+<span class="badge @CssClass">
+    <i class="fa-solid @IconClass"></i>
+    @Status.ToString()
+</span>
+
+@code {
+    [Parameter] public ContractStatus Status { get; set; }
+
+    private string CssClass => Status switch
+    {
+        ContractStatus.Active  => "badge-active",
+        ContractStatus.Draft   => "badge-draft",
+        ContractStatus.Expired => "badge-expired",
+        ContractStatus.OnHold  => "badge-onhold",
+        _ => "badge-draft"
+    };
+
+    private string IconClass => Status switch
+    {
+        ContractStatus.Active  => "fa-circle-check",
+        ContractStatus.Draft   => "fa-pencil",
+        ContractStatus.Expired => "fa-clock",
+        ContractStatus.OnHold  => "fa-pause-circle",
+        _ => "fa-circle"
+    };
+}

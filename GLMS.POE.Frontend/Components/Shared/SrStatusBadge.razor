@@ -1,0 +1,28 @@
+@using GLMS.POE.Shared.Models.Enums
+
+<span class="badge @CssClass">
+    <i class="fa-solid @IconClass"></i>
+    @Status.ToString()
+</span>
+
+@code {
+    [Parameter] public ServiceRequestStatus Status { get; set; }
+
+    private string CssClass => Status switch
+    {
+        ServiceRequestStatus.Pending    => "badge-pending",
+        ServiceRequestStatus.InProgress => "badge-inprogress",
+        ServiceRequestStatus.Completed  => "badge-completed",
+        ServiceRequestStatus.Cancelled  => "badge-cancelled",
+        _ => "badge-pending"
+    };
+
+    private string IconClass => Status switch
+    {
+        ServiceRequestStatus.Pending    => "fa-hourglass-half",
+        ServiceRequestStatus.InProgress => "fa-spinner",
+        ServiceRequestStatus.Completed  => "fa-circle-check",
+        ServiceRequestStatus.Cancelled  => "fa-ban",
+        _ => "fa-circle"
+    };
+}

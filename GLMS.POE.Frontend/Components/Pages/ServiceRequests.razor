@@ -1,0 +1,102 @@
+@page "/service-requests"
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@using GLMS.POE.Frontend.Components.Shared
+@using GLMS.POE.Frontend.Services.Interfaces
+@using GLMS.POE.Shared.Models
+@inject IServiceRequestService SrSvc
+
+<PageTitle>Service Requests — GLMS</PageTitle>
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Service Requests</h1>
+        <p class="page-subtitle">All logistics service requests across all contracts</p>
+    </div>
+    <button class="btn btn-secondary" @onclick="RefreshAsync" style="margin-left:auto">
+        <i class="fa-solid fa-rotate"></i> Refresh
+    </button>
+</div>
+
+@if (_loading)
+{
+    <div class="spinner"></div>
+    <p class="loading-text">Loading service requests…</p>
+}
+else
+{
+    <div class="card">
+        <div class="card-header">
+            <span class="card-title">All Requests (@_requests.Count)</span>
+        </div>
+
+        @if (_requests.Any())
+        {
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Contract</th>
+                        <th>Client</th>
+                        <th>Description</th>
+                        <th>Cost (USD)</th>
+                        <th>Cost (ZAR)</th>
+                        <th>Status</th>
+                        <th>Created</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var sr in _requests)
+                    {
+                        <tr>
+                            <td><span style="color:var(--text-muted)">#@sr.Id</span></td>
+                            <td>
+                                <a href="/contracts/@sr.ContractId" style="color:var(--accent);text-decoration:none">
+                                    #@sr.ContractId
+                                </a>
+                            </td>
+                            <td>@(sr.Contract?.Client?.Name ?? "—")</td>
+                            <td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+                                @sr.Description
+                            </td>
+                            <td>$@sr.CostUsd.ToString("N2")</td>
+                            <td style="color:var(--accent);font-weight:700">R @sr.CostZar.ToString("N2")</td>
+                            <td><SrStatusBadge Status="@sr.Status" /></td>
+                            <td style="font-size:12px;color:var(--text-muted)">@sr.CreatedAt.ToString("dd MMM yyyy")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+        else
+        {
+            <div class="empty-state">
+                <i class="fa-solid fa-truck-fast"></i>
+                <h3>No Service Requests</h3>
+                <p>Navigate to an Active contract to raise a service request.</p>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private List<ServiceRequest> _requests = new();
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _requests = await SrSvc.GetAllAsync();
+        _loading = false;
+    }
+
+    private async Task RefreshAsync()
+    {
+        await LoadAsync();
+        StateHasChanged();
+    }
+}

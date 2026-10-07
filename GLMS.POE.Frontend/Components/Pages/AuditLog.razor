@@ -1,0 +1,61 @@
+@page "/audit-log"
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@inject AuditLogApiService AuditLogApi
+
+<PageTitle>Audit Log — GLMS</PageTitle>
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Audit Log</h1>
+        <p class="page-subtitle">GoF Observer Pattern — contract status change events are recorded here automatically</p>
+    </div>
+    <button class="btn btn-secondary" @onclick="Refresh">
+        <i class="fa-solid fa-rotate"></i> Refresh
+    </button>
+</div>
+
+<div class="alert alert-info" style="margin-bottom:24px">
+    <i class="fa-solid fa-circle-info"></i>
+    <div>
+        Every time a contract's status changes, the <strong>ContractObserver</strong> (GoF Observer Pattern)
+        fires and records the event below. In production this would write to an audit database table and send email notifications.
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <span class="card-title">Status Change Events (@_entries.Count)</span>
+    </div>
+
+    @if (_entries.Any())
+    {
+        <div>
+            @foreach (var entry in _entries.AsEnumerable().Reverse())
+            {
+                <div class="audit-entry">
+                    <i class="fa-solid fa-circle-dot" style="color:var(--accent);margin-right:8px"></i>
+                    @entry
+                </div>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="empty-state">
+            <i class="fa-solid fa-clock-rotate-left"></i>
+            <h3>No Events Yet</h3>
+            <p>Change a contract's status from the Contracts page and the observer will record it here.</p>
+        </div>
+    }
+</div>
+
+@code {
+    private IReadOnlyList<string> _entries = new List<string>();
+
+    protected override async Task OnInitializedAsync() => await Refresh();
+
+    private async Task Refresh()
+    {
+        _entries = await AuditLogApi.GetAuditLogAsync();
+    }
+}
