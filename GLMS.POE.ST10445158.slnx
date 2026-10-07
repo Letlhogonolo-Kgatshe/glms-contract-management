@@ -2,4 +2,5 @@
   <Project Path="GLMS.POE.Backend/GLMS.POE.Backend.csproj" />
   <Project Path="GLMS.POE.Frontend/GLMS.POE.Frontend.csproj" />
   <Project Path="GLMS.POE.Shared/GLMS.POE.Shared.csproj" />
+  <Project Path="GLMS.Tests/GLMS.Tests.csproj" />
 </Solution>

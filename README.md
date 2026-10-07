@@ -1,6 +1,6 @@
 # GLMS — Global Logistics Management System
 
-![.NET](https://img.shields.io/badge/.NET-8%20%7C%2010-512BD4) ![Blazor](https://img.shields.io/badge/Blazor-Server-5C2D91) ![EF Core](https://img.shields.io/badge/EF%20Core-SQL%20Server-CC2927) ![Swagger](https://img.shields.io/badge/API-Swagger-85EA2D)
+![.NET](https://img.shields.io/badge/.NET-8%20%7C%2010-512BD4) ![Blazor](https://img.shields.io/badge/Blazor-Server-5C2D91) ![EF Core](https://img.shields.io/badge/EF%20Core-SQL%20Server-CC2927) ![Swagger](https://img.shields.io/badge/API-Swagger-85EA2D) [![CI](https://github.com/Letlhogonolo-Kgatshe/glms-contract-management/actions/workflows/ci.yml/badge.svg)](https://github.com/Letlhogonolo-Kgatshe/glms-contract-management/actions/workflows/ci.yml)
 
 A contract and service-request management platform for a logistics company (TechMove Logistics). It has a **REST API backend, a Blazor Server frontend and a SQL Server database**, and is built around three Gang-of-Four design patterns.
 
@@ -70,12 +70,30 @@ GLMS.POE.Shared    (models and DTOs shared by both tiers)
 
 You can also open `GLMS.POE.ST10445158.slnx` in Visual Studio and start both projects together.
 
+## Tests
+
+59 xUnit tests cover the core logic. They run on every push through GitHub Actions.
+
+| Test class | Covers |
+|---|---|
+| `ContractFactoryTests` | Draft and Active creation, field mapping, and rejecting invalid date ranges |
+| `ValidationStrategyTests` | Active-status and date strategies, and the composite strategy |
+| `ContractObserverTests` | Status changes are recorded in the audit log |
+| `ContractWorkflowTests` | End-to-end contract and service-request flow on an EF Core in-memory database |
+| `CurrencyCalculationTests` | USD → ZAR conversion and invalid rates |
+| `FileValidationTests` | Only `.pdf` uploads are accepted (rejects .exe, .php, .bat, double extensions and so on) |
+
+```bash
+dotnet test GLMS.Tests
+```
+
 ## Project structure
 
 ```
 GLMS.POE.Backend/    Controllers, Services (Factory, Observer, Strategy), EF DbContext, Migrations
 GLMS.POE.Frontend/   Razor pages: Dashboard, Clients, Contracts, Service Requests, Audit Log
 GLMS.POE.Shared/     Shared models
+GLMS.Tests/          xUnit tests (Moq, EF Core InMemory)
 SQLQuery1.sql        Database schema script
 ```
 
